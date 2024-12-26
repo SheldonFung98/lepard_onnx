@@ -1,3 +1,9 @@
 *.pyc
 *.pth
 .idea
+*.zip
+*.so
+*.o
+*.onnx
+snapshot/
+.vscode/

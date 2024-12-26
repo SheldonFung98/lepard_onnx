@@ -24,6 +24,7 @@ kpfcn_config:
   fine_feature_dim:  264
   coarse_match_radius: 0.06
   coarse_level: -2
+  neighborhood_limits: [38, 36, 36, 38]
 
 
 coarse_matching: &coarse_matching
@@ -40,6 +41,7 @@ coarse_matching: &coarse_matching
 coarse_transformer:
   feature_dim: *coarse_feature_dim
   n_head: 4
+  # layer_types: ['self', 'cross', 'self', 'cross']
   layer_types: ['self', 'cross', 'positioning', 'self', 'cross']
   positioning_type: &positioning_type 'procrustes' # options: [ 'randSO3' , 'procrustes', 'oracle']
   pe_type: &pe_type "rotary" # options: [ 'rotary', 'sinusoidal']
@@ -75,7 +77,7 @@ train_loss:
 # misc
 exp_dir:   test
 mode: test
-gpu_mode:  True
+gpu_mode:  False
 verbose: True
 verbose_freq: 1000
 do_valid: True
@@ -102,7 +104,7 @@ folder: -last
 batch_size: 1
 num_workers: 8
 augment_noise: 0.005
-data_root: data/indoor
+data_root: ../data/indoor
 split: {
   "train": configs/indoor/train_info.pkl,
   "val": configs/indoor/val_info.pkl,

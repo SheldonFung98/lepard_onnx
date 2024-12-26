@@ -146,9 +146,13 @@ class RepositioningTransformer(nn.Module):
 
         self._reset_parameters()
 
+    def forward(self, src_feat, tgt_feat, s_pcd, t_pcd, src_mask=None, tgt_mask=None, data=None, T = None, timers = None):
+        return self._forward(src_feat, tgt_feat, s_pcd, t_pcd, src_mask, tgt_mask, data, T, timers)
 
+    def _forward_packed(self, data):
+        return self._forward(*data)
 
-    def forward(self, src_feat, tgt_feat, s_pcd, t_pcd, src_mask, tgt_mask, data, T = None, timers = None):
+    def _forward(self, src_feat, tgt_feat, s_pcd, t_pcd, src_mask=None, tgt_mask=None, data=None, T = None, timers = None):
 
         self.timers = timers
 
@@ -165,11 +169,11 @@ class RepositioningTransformer(nn.Module):
         src_pe = self.positional_encoding( src_pcd_wrapped)
         tgt_pe = self.positional_encoding( tgt_pcd_wrapped)
 
-
         if not self.entangled:
 
             position_layer = 0
-            data.update({"position_layers":{}})
+            if data is not None:
+                data.update({"position_layers":{}})
 
             for layer, name in zip(self.layers, self.layer_types) :
 
@@ -185,21 +189,23 @@ class RepositioningTransformer(nn.Module):
                     tgt_feat = layer(tgt_feat, src_feat, tgt_pe, src_pe, tgt_mask, src_mask)
                     if self.timers: self.timers.toc('cross atten')
 
-                elif name =='positioning':
+                elif name =='positioninga':
 
                     if self.positioning_type == 'procrustes':
 
                         conf_matrix, match_pred = layer[0](src_feat, tgt_feat, src_pe, tgt_pe, src_mask, tgt_mask, data, pe_type=self.pe_type)
 
                         position_layer += 1
-                        data["position_layers"][position_layer] = {"conf_matrix": conf_matrix, "match_pred": match_pred}
+                        if data is not None:
+                            data["position_layers"][position_layer] = {"conf_matrix": conf_matrix, "match_pred": match_pred}
 
                         if self.timers: self.timers.tic('procrustes_layer')
                         R, t, R_forwd, t_forwd, condition, solution_mask = layer[1] (conf_matrix, s_pcd, t_pcd,  src_mask, tgt_mask)
                         if self.timers: self.timers.toc('procrustes_layer')
 
-                        data["position_layers"][position_layer].update({
-                            "R_s2t_pred": R,"t_s2t_pred": t, "solution_mask": solution_mask, "condition": condition})
+                        if data is not None:
+                            data["position_layers"][position_layer].update({
+                                "R_s2t_pred": R,"t_s2t_pred": t, "solution_mask": solution_mask, "condition": condition})
 
                         src_pcd_wrapped = (torch.matmul(R_forwd, s_pcd.transpose(1, 2)) + t_forwd).transpose(1, 2)
                         tgt_pcd_wrapped = t_pcd
@@ -216,8 +222,9 @@ class RepositioningTransformer(nn.Module):
 
                     elif self.positioning_type == 'oracle':
                         #Note R,t ground truth is only available for computing oracle position encoding
-                        rot_gt = data['batched_rot']
-                        trn_gt = data['batched_trn']
+                        if data is not None:
+                            rot_gt = data['batched_rot']
+                            trn_gt = data['batched_trn']
                         src_pcd_wrapped = (torch.matmul(rot_gt, s_pcd.transpose(1, 2)) + trn_gt).transpose(1, 2)
                         tgt_pcd_wrapped = t_pcd
                         src_pe = self.positional_encoding(src_pcd_wrapped)
@@ -228,14 +235,16 @@ class RepositioningTransformer(nn.Module):
                         raise KeyError(self.positioning_type + " undefined positional encoding type")
 
                 else :
-                    raise KeyError
+                    # raise KeyError
+                    pass
 
             return src_feat, tgt_feat, src_pe, tgt_pe
 
         else : # pos. fea. entangeled
 
             position_layer = 0
-            data.update({"position_layers":{}})
+            if data is not None:
+                data.update({"position_layers":{}})
 
             src_feat = VolPE.embed_pos(self.pe_type, src_feat, src_pe)
             tgt_feat = VolPE.embed_pos(self.pe_type, tgt_feat, tgt_pe)

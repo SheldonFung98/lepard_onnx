@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from lib.timer import AverageMeter
@@ -40,7 +40,7 @@ class Trainer(object):
 
         self.best_loss = 1e5
         self.best_recall = -1e5
-        self.summary_writer = SummaryWriter(log_dir=args.tboard_dir)
+        # self.summary_writer = SummaryWriter(log_dir=args.tboard_dir)
         self.logger = Logger(args.snapshot_dir)
         self.logger.write(f'#parameters {sum([x.nelement() for x in self.model.parameters()]) / 1000000.} M\n')
 
@@ -77,7 +77,7 @@ class Trainer(object):
     def _load_pretrain(self, resume):
         print ("loading pretrained", resume)
         if os.path.isfile(resume):
-            state = torch.load(resume)
+            state = torch.load(resume, map_location=torch.device('cpu'))
             self.model.load_state_dict(state['state_dict'])
             self.start_epoch = state['epoch']
             self.scheduler.load_state_dict(state['scheduler'])
@@ -187,8 +187,8 @@ class Trainer(object):
             if phase == 'train' :
                 if (c_iter + 1) % self.verbose_freq == 0 and self.verbose  :
                     curr_iter = num_iter * (epoch - 1) + c_iter
-                    for key, value in stats_meter.items():
-                        self.summary_writer.add_scalar(f'{phase}/{key}', value.avg, curr_iter)
+                    # for key, value in stats_meter.items():
+                    #     self.summary_writer.add_scalar(f'{phase}/{key}', value.avg, curr_iter)
 
                     dump_mess=True
                     if dump_mess:
@@ -202,9 +202,9 @@ class Trainer(object):
 
 
         # report evaluation score at end of each epoch
-        if phase in ['val', 'test']:
-            for key, value in stats_meter.items():
-                self.summary_writer.add_scalar(f'{phase}/{key}', value.avg, epoch)
+        # if phase in ['val', 'test']:
+        #     for key, value in stats_meter.items():
+        #         self.summary_writer.add_scalar(f'{phase}/{key}', value.avg, epoch)
 
         message = f'{phase} Epoch: {epoch}'
         for key, value in stats_meter.items():

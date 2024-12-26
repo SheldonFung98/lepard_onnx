@@ -15,12 +15,12 @@ def ransac_pose_estimation(src_pcd, tgt_pcd, corrs, distance_threshold=0.05, ran
     tgt_pcd = to_o3d_pcd(tgt_pcd)
     corrs = o3d.utility.Vector2iVector(np.array(corrs).T)
 
-    result_ransac = o3d.registration.registration_ransac_based_on_correspondence(
+    result_ransac = o3d.pipelines.registration.registration_ransac_based_on_correspondence(
         source=src_pcd, target=tgt_pcd, corres=corrs,
         max_correspondence_distance=distance_threshold,
-        estimation_method=o3d.registration.TransformationEstimationPointToPoint(False),
+        estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
         ransac_n=ransac_n,
-        criteria=o3d.registration.RANSACConvergenceCriteria(50000, 1000))
+        criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(50000, 1000))
     return result_ransac.transformation
 
 

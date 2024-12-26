@@ -311,7 +311,7 @@ class KPConv(nn.Module):
         elif self.KP_influence == 'linear':
             # Influence decrease linearly with the distance, and get to zero when d = KP_extent.
             all_weights = torch.clamp(1 - torch.sqrt(sq_distances) / self.KP_extent, min=0.0)
-            all_weights = torch.transpose(all_weights, 1, 2)
+            # all_weights = torch.transpose(all_weights, 1, 2)
 
         elif self.KP_influence == 'gaussian':
             # Influence in gaussian of the distance.
@@ -336,19 +336,29 @@ class KPConv(nn.Module):
         neighb_x = gather(x, new_neighb_inds)
 
         # Apply distance weights [n_points, n_kpoints, in_fdim]
-        weighted_features = torch.matmul(all_weights, neighb_x)
+        # weighted_features = torch.matmul(all_weights, neighb_x)
+        # weighted_features = torch.einsum("bnc,bcp->bnp", all_weights, neighb_x)
+
+        # Apply distance weights [n_points, n_kpoints, in_fdim] no transpose
+        weighted_features = torch.einsum("bcn,bcp->bnp", all_weights, neighb_x)
 
         # Apply modulations
         if self.deformable and self.modulated:
             weighted_features *= modulations.unsqueeze(2)
 
         # Apply network weights [n_kpoints, n_points, out_fdim]
-        weighted_features = weighted_features.permute((1, 0, 2))
-        kernel_outputs = torch.matmul(weighted_features, self.weights)
+        # weighted_features = weighted_features.permute((1, 0, 2))
+        # kernel_outputs = torch.matmul(weighted_features, self.weights)
+
+        # Apply network weights [n_kpoints, n_points, out_fdim] no transpose
+        kernel_outputs = torch.einsum("bnp,npc->bnc", weighted_features, self.weights)
 
         # Convolution sum [n_points, out_fdim]
         # return torch.sum(kernel_outputs, dim=0)
-        output_features = torch.sum(kernel_outputs, dim=0, keepdim=False)
+        # output_features = torch.sum(kernel_outputs, dim=0, keepdim=False)
+
+        # no transpose
+        output_features = torch.sum(kernel_outputs, dim=1)
 
         # normalization term.
         neighbor_features_sum = torch.sum(neighb_x, dim=-1)
@@ -438,11 +448,19 @@ class BatchNormBlock(nn.Module):
     def forward(self, x):
         if self.use_bn:
 
-            x = x.unsqueeze(2)
-            x = x.transpose(0, 2)
-            x = self.batch_norm(x)
-            x = x.transpose(0, 2)
-            return x.squeeze()
+            # built-in batch normalization
+            # x = x.unsqueeze(2)
+            # x = x.transpose(0, 2)
+            # x = self.batch_norm(x)
+            # x = x.transpose(0, 2)
+            # return x.squeeze()
+        
+            # instance normalization
+            ins_mean = x.mean(dim=0, keepdim=True)
+            ins_std = x.std(dim=0, keepdim=True, unbiased=False)
+            verify_ins_y = (x - ins_mean)/(ins_std + 1e-5)
+            return verify_ins_y
+
         else:
             return x + self.bias
 
@@ -477,7 +495,9 @@ class UnaryBlock(nn.Module):
 
     def forward(self, x, batch=None):
         x = self.mlp(x)
-        x = self.batch_norm(x)
+        # x = self.mlp(x.unsqueeze(dim=1)).squeeze(dim=1)
+        # x = torch.einsum("oi,bi->bo",self.mlp.weight, x)
+        # x = self.batch_norm(x)
         if not self.no_relu:
             x = self.leaky_relu(x)
         return x
@@ -508,6 +528,9 @@ class LastUnaryBlock(nn.Module):
 
     def forward(self, x, batch=None):
         x = self.mlp(x)
+        # x = self.mlp(x.unsqueeze(dim=1)).squeeze(dim=1)
+        # x = self.mlp(x[:, None,...])[0]
+        # x = torch.einsum("oi,bi->bo",self.mlp.weight, x)
         return x
 
     def __repr__(self):

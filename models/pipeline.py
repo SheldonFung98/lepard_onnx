@@ -48,8 +48,6 @@ class Pipeline(nn.Module):
         return data
 
 
-
-
     def split_feats(self, geo_feats, data):
 
         pcd = data['points'][self.config['kpfcn_config']['coarse_level']]

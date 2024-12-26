@@ -117,7 +117,7 @@ class KPFCN(nn.Module):
 
 
 
-    def forward(self, batch, phase = 'encode'):
+    def forward(self, batch, phase = 'coarse'):
         # Get input features
 
         if phase == 'coarse' :

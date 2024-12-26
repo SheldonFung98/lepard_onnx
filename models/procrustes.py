@@ -12,7 +12,7 @@ class SoftProcrustesLayer(nn.Module):
         super(SoftProcrustesLayer, self).__init__()
 
         self.sample_rate = config.sample_rate
-        self.max_condition_num= config.max_condition_num
+        self.max_condition_num = config.max_condition_num
 
     @staticmethod
     def batch_weighted_procrustes( X, Y, w, eps=0.0001):
@@ -45,7 +45,7 @@ class SoftProcrustesLayer(nn.Module):
 
 
 
-    def forward(self,  conf_matrix,  src_pcd, tgt_pcd,  src_mask, tgt_mask):
+    def forward(self,  conf_matrix,  src_pcd, tgt_pcd,  src_mask=None, tgt_mask=None):
         '''
         @param conf_matrix:
         @param src_pcd:
@@ -58,8 +58,15 @@ class SoftProcrustesLayer(nn.Module):
         bsize, N, M = conf_matrix.shape
 
         # subsample correspondence
-        src_len = src_mask.sum(dim=1)
-        tgt_len = tgt_mask.sum(dim=1)
+        if src_mask is None:
+            src_len = torch.tensor([N])
+        else:
+            src_len = src_mask.sum(dim=1)
+        if tgt_mask is None:
+            tgt_len = torch.tensor([M])
+        else:
+            tgt_len = tgt_mask.sum(dim=1)
+
         entry_max, _ = torch.stack([src_len,tgt_len], dim=0).max(dim=0)
         entry_max = (entry_max * self.sample_rate).int()
         sample_n_points = entry_max.float().mean().int() #entry_max.max()
